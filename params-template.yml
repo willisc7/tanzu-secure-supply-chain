@@ -1,0 +1,57 @@
+---
+database:
+  chart_version: 6.14.7
+  chart_name: mysql
+  helm_repo_url: https://charts.trials.tac.bitnami.com/demo
+  helm_repo_name: tac
+  registry_url: gcr.io
+  img_repo: sys-2b0109it/demo/bitnami/mysql
+  tag: 5.7
+  username: root
+  password: password
+  root_password: password
+  repl_password: password
+  storageclass: k8s-storage
+
+application:
+  chart_version: 0.1.0
+  chart_name: spring-music
+  registry_url: dockerhub.com
+  helm_repo_url: willisc7.github.io/helm-repo
+  helm_release: willisc7
+  chart_repo: stable/spring
+  img_repo: willisc/spring-music-tbs
+  tag: latest
+  helm_repo_name: tac
+  git_uri: git@github.com:willisc7/spring-music.git
+  git_branch: master
+  sonarqube_auth_token: ((sonarqube_auth_token))
+  build_version: 1.0
+
+k8s:
+  token: placeholder
+  cluster_url: https://10.100.0.27:6443
+  cluster_ca: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5ekNDQWJPZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01URXdNakU0TURReU5Wb1hEVE13TVRBek1URTRNRGt5TlZvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS25GCm1MTnBWSjFEcVZmQnV2ek1zb3RwQjM1NG9mM2E0cU5RbTRNbHNKeTdrYS9UMUc5c09PTHlsdW5qTjgvR1lEY1QKRTdRRnJVWUk4aXByeUpCb1V4enlVbloyREZrUHQ0STRwNkpNMFVMS2NWWjRmSFNXZ0ZCL3NRM0tZZWdvekw1VApxL1RFNTdyYTErR3FEbjdEWVRjdll6YXcrSDVyVWJmV3VDdnB2ckpJTytteTdtZ3JkZU1EMVY3N3QyVTgxelBhClRGL29hRk9qdEJUZW5Gbklld2FjQTYyOTBPQnFGU3k2eTNubWd6WlFLc2F3bmJGWEE0RXIyMnFrNUdqVTNFLy8KYWgrZmxONUlzRjRFNXpsVE1tWll5dTFxNzZMcnJ2Mi9xOHVveFNCZVdhb3dsS09iZTJtUDdaY0hKV3YrcDRINgozWFhNcXlGRTFpMmxuQkNsVGljQ0F3RUFBYU1tTUNRd0RnWURWUjBQQVFIL0JBUURBZ0trTUJJR0ExVWRFd0VCCi93UUlNQVlCQWY4Q0FRQXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBSG9kS1EzWitsQ09CdVJjdXBLR1pyd0wKQ0dmbHBYWHhNRmxHMEt3bms2RVBESjVSc3BjenlZZVJjT0hVR25JTDA1M2FFaDVzMlI2RW5xVmhtMy9IUUdIYQpSdldjZndOdmJBM2crcUs5TWo5Smo1UWtHajRkTnVXVHJlQTM2M0NWQmVJTlBRUWNBTThzdTlOQ2dRRlBFZklhCm1aeE1CQkdlU1hSNWV1WFF6SDNheUY0RlVSWFl4NitxbkU4WnZqV1V6WWVhV0wyVDlwY3BmMFlka3BCQkFxMTQKb05ydk5OdFlBVnJnVzZ0aXdTajVYa3BOY0prN05XVXYxWVhSUG83RXhzRTVmSGx5aGx0SGxOQnQ3N2lyNnd2YQpFYWttckN2U2NqMG5zRnJjcWd2dXFnczV6ZEJLMVJVQnkvSFVBWURHMGsvTE01SUUrdllwWFNOSDYwem02TlU9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+
+# sonarqube_url: <SONARQUBE_URL>
+pa_image: vsphere-platform-automation-image-(5.0.*).tar.gz
+pa_artifacts_bucket: placeholder
+
+concourse_helm_resource_image_tag: typositoire/concourse-helm3-resource
+s3_endpoint: s3.us-east-1.amazonaws.com
+iaas_region: us-east-1
+
+ca_cert: |
+  -----BEGIN CERTIFICATE-----
+  ...
+  -----END CERTIFICATE-----
+
+# Store these in credhub/vault, if possible
+s3_access_key_id: placeholder
+s3_secret_access_key: placeholder
+git:
+  username: placeholder
+  private_key: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ...
+    -----END OPENSSH PRIVATE KEY-----

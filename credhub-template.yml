@@ -1,0 +1,21 @@
+credentials:
+- name: /concourse/<ENVIRONMENT>/k8s_svc_token_<CLUSTER_NAME>
+  type: password
+  value: FIXME
+
+- name: /concourse/<ENVIRONMENT>/git
+  type: ssh
+  value:
+    username: tbs-svc
+    private_key: |
+      -----BEGIN OPENSSH PRIVATE KEY-----
+      ...
+      -----END OPENSSH PRIVATE KEY-----
+
+- name: /concourse/<ENVIRONMENT>/s3_access_key_id
+  type: password
+  value: FIXME
+
+- name: /concourse/<ENVIRONMENT>/s3_secret_access_key
+  type: password
+  value: FIXME

@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "spring-music.fullname" . }}
+  labels:
+    {{- include "spring-music.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "spring-music.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "spring-music.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "spring-music.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+          - name: "SPRING_DATASOURCE_USERNAME"
+            value: {{ .Values.env.SPRING_DATASOURCE_USERNAME }}
+          - name: "SPRING_DATASOURCE_PASSWORD"
+            value: {{ .Values.env.SPRING_DATASOURCE_PASSWORD }}
+          - name: "SPRING_DATASOURCE_URL"
+            value: {{ .Values.env.SPRING_DATASOURCE_URL }}
+          - name: "JAVA_OPTS"
+            value: {{ .Values.env.JAVA_OPTS }}
+          volumeMounts:
+          - name: contrast-agent
+            mountPath: /data
+      initContainers:
+      - name: contrast-agent-download
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        #command: ["/bin/sh", "-c", "curl -o /data/contrast.jar -X GET http://<CONTRAST_TEAM_SERVER>:8080/Contrast/api/ng/f832883f-a7b7-4b79-8f12-d12cbe407dd0/agents/default/JAVA -H 'Authorization: <CONTRAST_AUTH_KEY>' -H 'API-Key: <CONTRAST_API_KEY>' -H 'Accept: application/json' -OJ"]
+        command: ["/bin/sh", "-c", "echo 'placeholder for retrieving contrast agent'"]
+        volumeMounts:
+        - name: contrast-agent
+          mountPath: /data
+      volumes:
+      - name: contrast-agent
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

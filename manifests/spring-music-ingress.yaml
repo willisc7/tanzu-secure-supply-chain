@@ -1,0 +1,14 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: spring-music-ingress
+  namespace: default
+spec:
+  rules:
+    - host: spring-music.willisc.lab
+      http:
+        paths:
+        - backend:
+            serviceName: willisc7-spring-music
+            servicePort: 80
+          pathType: ImplementationSpecific

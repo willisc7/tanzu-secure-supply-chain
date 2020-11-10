@@ -1,0 +1,239 @@
+---
+#┌───────────────────────────────────────────────────────────────────┐
+#├ Reusable anchors                                                  │
+#│                                                                   │
+#├ helm_params:                                                      │
+#│ └── cluster_ca - you can retrieve this value using the following  |
+#|     command:                                                      |
+#|     kubectl get secret $(kubectl get sa concourse -o json | \     |
+#|       jq -r '.secrets[0].name') -o json | \                       |
+#|       jq -r '.data."ca.crt"' | \                                  |
+#|       pbcopy                                                      │
+#│ └── cluster_url - e.g. the URL to reach your kubernetes master(s) │
+#│ └── namespace - the namespace you want helm to deploy to          │
+#│ └── token - the auth token used to interact with the k8s cluster. |
+#|     This can be retrieved from your .kube/config file.            │
+#└───────────────────────────────────────────────────────────────────┘
+
+helm_params: &helm_params
+  cluster_url: ((k8s.cluster_url))
+  # cluster_ca: ((k8s.cluster_ca))
+  insecure_cluster: true
+  namespace: default
+  token: ((k8s.token))
+
+bucket_access: &bucket_access
+  access_key_id: ((s3_access_key_id))
+  secret_access_key: ((s3_secret_access_key))
+  endpoint: ((s3_endpoint))
+  region_name: ((iaas_region))
+  skip_ssl_verification: true
+
+#┌───────────────────────────────────────────────────────────────────┐
+#├ Job Groups                                                        │
+#└───────────────────────────────────────────────────────────────────┘
+groups:
+- name: all
+  jobs:
+  - static-code-scan
+  - new-image-detected
+  - deploy-((database.chart_name))
+  - deploy-((application.chart_name))
+
+#┌───────────────────────────────────────────────────────────────────┐
+#├ Additional Resource Types                                         │
+#└───────────────────────────────────────────────────────────────────┘
+resource_types:
+- name: helm
+  type: docker-image
+  source:
+    repository: ((concourse_helm_resource_image_tag))
+
+#┌───────────────────────────────────────────────────────────────────┐
+#├ Resource Definitions                                              │
+#└───────────────────────────────────────────────────────────────────┘
+resources:
+- name: ((application.chart_name))
+  type: git
+  source:
+    uri: ((application.git_uri))
+    branch: ((application.git_branch))
+    username: ((git.username))
+    private_key: ((git.private_key))
+    skip_ssl_verification: true
+
+- name: ((application.chart_name))-release
+  type: git
+  source:
+    uri: ((application.git_uri))
+    branch: release
+    username: ((git.username))
+    private_key: ((git.private_key))
+    skip_ssl_verification: true
+
+- name: platform-automation-image
+  type: s3
+  source:
+    bucket: ((pa_artifacts_bucket))
+    regexp: ((pa_image))
+    <<: *bucket_access
+
+- name: ((application.chart_name))-image
+  type: docker-image
+  source:
+    repository: ((application.img_repo))
+    # TODO: work with private docker registry
+    # username: ((img_repo.username))
+    # password: ((img_repo.password))
+    # insecure_registries:
+    # - https://((application.registry_url))
+    # ca_certs:
+    # - domain: ((application.registry_url))
+    #   cert: ((ca_cert))
+
+- name: ((database.chart_name))-helm
+  type: helm
+  source:
+    repos:
+    - name: ((database.helm_repo_name))
+      url: ((database.helm_repo_url))
+    release: ((application.chart_name))-((database.chart_name))
+    <<: *helm_params
+
+- name: ((application.chart_name))-helm
+  type: helm
+  source:
+    repos:
+    - name: willisc7
+      url: https://((application.helm_repo_url))
+    release: ((application.helm_release))-((application.chart_name))
+    <<: *helm_params
+
+#┌───────────────────────────────────────────────────────────────────┐
+#├ Jobs                                                              │
+#└───────────────────────────────────────────────────────────────────┘
+jobs:
+- name: static-code-scan
+  plan:
+  - get: ((application.chart_name))
+    trigger: true
+  - get: ((application.chart_name))-release
+  - get: platform-automation-image
+    params:
+      unpack: true
+  - task: sonarqube-scan
+    params:
+      BUILD_VERSION: ((application.build_version))
+      # CA_CERT: ((ca_cert))
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: openjdk
+          tag: 8-jdk
+      inputs:
+        - name: ((application.chart_name))
+      run:
+        path: bash
+        args:
+        - '-c'
+        - 'echo "Static code analysis complete"'
+        #- 'echo "$CA_CERT" > ca.crt && keytool -import -trustcacerts -alias custom-ca -file ./ca.crt -keystore $JAVA_HOME/jre/lib/security/cacerts -storepass changeit -noprompt && cd ./((application.chart_name)) && ./gradlew sonarqube -Dsonar.projectKey=((application.chart_name)) -Dsonar.host.url=((sonarqube_url)) -Dsonar.login=((application.sonarqube_auth_token))'
+
+  # NOTE: task fails if sonarqube API tells us project status is not "OK", which 
+  # means it failed sonarqube scanning
+  - task: sonarqube-passed
+    image: platform-automation-image
+    config:
+      platform: linux
+      run:
+        path: bash
+        args:
+        - '-exc'
+        - 'echo "Static code scan passed"'
+        # - 'curl -sku ((application.sonarqube_auth_token)): ((sonarqube_url))/api/qualitygates/project_status?projectKey=((application.chart_name)) | jq .projectStatus.status | grep "OK"'
+  
+  - put: ((application.chart_name))
+    params:
+      repository: ((application.chart_name))-release
+      force: true
+
+# Note: this task looks superfluous but I think its needed because when I tried to have
+# deploy-((database.chart_name)) trigger on new image and [static-code-scan]
+# passing it would hang. I suspect its because by the time TBS builds the image the job has 
+# expired so it cant check if it passed or not. Im not 100% sure.
+- name: new-image-detected
+  plan:
+  - get: platform-automation-image
+    params:
+      unpack: true
+    passed: [static-code-scan]
+  - get: ((application.chart_name))-image
+    trigger: true
+  - task: image-detected
+    image: platform-automation-image
+    config:
+      platform: linux
+      run:
+        path: bash
+        args:
+        - '-c'
+        - 'echo "New ((application.chart_name)) image detected."'
+
+- name: deploy-((database.chart_name))
+  plan:
+  # NOTE: when ((application.chart_name))-release pushes to release branch, TBS sees it 
+  # and will build a new image and push it to harbor, which will trigger this task
+  - get: ((application.chart_name))-image
+    passed: [new-image-detected]
+    trigger: true
+  - put: ((database.chart_name))-helm
+    params:
+      chart: ((database.helm_repo_name))/((database.chart_name))
+      version: ((database.chart_version))
+      override_values:
+      - key: global.storageClass
+        value: ((database.storageclass))
+      - key: version
+        value: ((database.chart_version))
+      - key: image.tag
+        value: ((database.tag))
+        type: string
+      - key: root.password
+        value: ((database.root_password))
+      - key: replication.password
+        value: ((database.repl_password))
+      - key: image.repository
+        value: ((database.img_repo))
+      - key: image.registry
+        value: ((database.registry_url))
+
+# TODO: populate all initContainer and volume stuff here instead of in helm deploy template
+- name: deploy-((application.chart_name))
+  plan:
+  - get: ((application.chart_name))-image
+    trigger: true
+    passed: [deploy-((database.chart_name))]
+  - put: ((application.chart_name))-helm
+    params:
+      chart: ((application.helm_release))/((application.chart_name))
+      version: ((application.chart_version))
+      override_values:
+      - key: version
+        value: ((application.chart_version))
+      - key: image.tag
+        value: ((application.tag))
+        type: string
+      - key: image.repository
+        value: ((application.img_repo))
+      # TODO: Need a better way to set database creds using credhub
+      - key: env.SPRING_DATASOURCE_USERNAME
+        value: ((database.username))
+      - key: env.SPRING_DATASOURCE_PASSWORD
+        value: ((database.root_password))
+      - key: env.SPRING_DATASOURCE_URL
+        value: "jdbc:mysql://((application.chart_name))-((database.chart_name)).default.svc.cluster.local/my_database"
+      # Values for injecting Contrast agent
+      # - key: env.JAVA_OPTS
+      #   value: "-javaagent:/data/contrast.jar -Dcontrast.standalone.appname=((application.chart)) -Dcontrast.agent.contrast_working_dir=/data/ -Dcontrast.external.lib.dir=/workspace/BOOT-INF/ -Dcontrast.log=/workspace/contrast-logs"
