@@ -17,10 +17,10 @@
 
 helm_params: &helm_params
   cluster_url: ((k8s.cluster_url))
-  # cluster_ca: ((k8s.cluster_ca))
   insecure_cluster: true
   namespace: default
-  token: ((k8s.token))
+  admin_key: ((k8s.admin_key))
+  admin_cert: ((k8s.admin_cert))
 
 bucket_access: &bucket_access
   access_key_id: ((s3_access_key_id))
